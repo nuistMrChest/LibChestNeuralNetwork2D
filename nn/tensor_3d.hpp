@@ -238,7 +238,7 @@ namespace LibCN{
 			return res;
 		}
 
-		Tensor3d<T>convolution(const Tensor4d<T>&a,size_t stride,size_t padding){
+		Tensor3d<T>convolution(const Tensor4d<T>&a,size_t stride,size_t padding)const{
 			Tensor3d<T>res(
 				a.size(),
 				(h+2*padding-a[0].h)/stride+1,

@@ -81,8 +81,9 @@ namespace LibCN{
 		size_t i_c,i_h,i_l;
 		size_t o_c,o_h,o_l;
 		size_t stride,padding;
-		Tensor3d<T>lase_input;
-		Tensor3d<T>b;
+		std::vector<T>b;
+		Tensor3d<T>z;
+		Tensor3d<T>last_input;
 
 		CNNLayer(){
 			i_c=0;
@@ -111,7 +112,7 @@ namespace LibCN{
 			this->o_l=o_l;
 			this->stride=s;
 			this->padding=p;
-			b.resize(o_c,o_h,o_l);
+			b.resize(o_c);
 		}
 
 		void init(size_t c_o,size_t c_i,size_t h,size_t l,T low=T(-1),T high=T(1)){
@@ -122,15 +123,65 @@ namespace LibCN{
 				kernal[i].resize(c_i,h,l);
 				for(size_t j=0;j<kernal[i].v.size();j++)kernal[i].v[j]=dist(rng);
 			}
-			for(size_t i=0;i<b.v.size();i++)b.v[i]=dist(rng);
+			for(size_t i=0;i<b.size();i++)b[i]=dist(rng);
 		}
 
 		Tensor3d<T>forward(const Tensor3d<T>&input){
 			Tensor3d<T>res;
+			last_input=input;
 			if(input.c==i_c&&input.h==i_h&&input.l==i_l){
-				res=input.convolution(kernal,stride,padding)+b;
-				res=activation(res);
+				z=input.convolution(kernal,stride,padding);
+				for(size_t i=0;i<o_c;i++)
+					for(size_t x=0;x<o_h;x++)
+						for(size_t y=0;y<o_l;y++)
+							z(i,x,y)+=b[i];
+				res=activation(z);
 			}
+			return res;
+		}
+
+		Tensor3d<T>backward(const Tensor3d<T>&dl_da,const T&step){
+			Tensor3d<T>res(i_c,i_h,i_l);
+			for(size_t i=0;i<res.v.size();i++)res.v[i]=T(0);
+			Tensor3d<T>dl_dz=dl_da.hadamard(activation_d(z));
+			for(size_t i=0;i<o_c;i++){
+				for(size_t j=0;j<i_c;j++)
+					for(size_t x=0;x<kernal[0].h;x++)
+						for(size_t y=0;y<kernal[0].l;y++){
+							T grad_k=T(0);
+							for(size_t u=0;u<o_h;u++)
+								for(size_t v=0;v<o_l;v++)
+									grad_k+=
+										dl_dz(i,u,v)*
+										last_input(
+											j,
+											u*stride+x-padding,
+											v*stride+y-padding
+										);
+							kernal[i](j,x,y)-=step*grad_k;
+						}
+			}
+			std::vector<T>grad_b(o_c,T(0));
+			for(size_t i=0;i<o_c;i++)
+				for(size_t u=0;u<o_h;u++)
+					for(size_t v=0;v<o_l;v++)
+						grad_b[i]+=dl_dz(i,u,v);
+			for(size_t i=0;i<o_c;i++)b[i]-=step*grad_b[i];
+			for(size_t j=0;j<i_c;j++)
+				for(size_t a=0;a<i_h;a++)
+					for(size_t b=0;b<i_l;b++){
+						res(j,a,b)=T(0);
+						for(size_t i=0;i<o_c;i++)
+							for(size_t u=0;u<o_h;u++)
+								for(size_t v=0;v<o_l;v++)
+									res(j,a,b)+=
+										dl_dz(i,u,v)*
+										kernal[i](
+											j,
+											a-u*stride+padding,
+											b-v*stride+padding
+										);
+					}
 			return res;
 		}
 	};
