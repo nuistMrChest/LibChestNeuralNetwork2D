@@ -205,8 +205,8 @@ namespace LibCN{
 			return res;
 		}
 
-		static Tensor3d<T>deflatten(const Matrix<T>&a,size_t h,size_t l){
-			Tensor3d<T>res(1,h,l);
+		static Tensor3d<T>deflatten(const Matrix<T>&a,size_t c,size_t h,size_t l){
+			Tensor3d<T>res(c,h,l);
 			res.v=a.v;
 			return res;
 		}

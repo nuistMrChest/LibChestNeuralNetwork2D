@@ -142,31 +142,10 @@ namespace LibCN{
 
 		Tensor3d<T>backward(const Tensor3d<T>&dl_da,const T&step){
 			Tensor3d<T>res(i_c,i_h,i_l);
+
 			for(size_t i=0;i<res.v.size();i++)res.v[i]=T(0);
 			Tensor3d<T>dl_dz=dl_da.hadamard(activation_d(z));
-			for(size_t i=0;i<o_c;i++){
-				for(size_t j=0;j<i_c;j++)
-					for(size_t x=0;x<kernal[0].h;x++)
-						for(size_t y=0;y<kernal[0].l;y++){
-							T grad_k=T(0);
-							for(size_t u=0;u<o_h;u++)
-								for(size_t v=0;v<o_l;v++)
-									grad_k+=
-										dl_dz(i,u,v)*
-										last_input(
-											j,
-											u*stride+x-padding,
-											v*stride+y-padding
-										);
-							kernal[i](j,x,y)-=step*grad_k;
-						}
-			}
-			std::vector<T>grad_b(o_c,T(0));
-			for(size_t i=0;i<o_c;i++)
-				for(size_t u=0;u<o_h;u++)
-					for(size_t v=0;v<o_l;v++)
-						grad_b[i]+=dl_dz(i,u,v);
-			for(size_t i=0;i<o_c;i++)b[i]-=step*grad_b[i];
+
 			for(size_t j=0;j<i_c;j++)
 				for(size_t a=0;a<i_h;a++)
 					for(size_t b=0;b<i_l;b++){
@@ -174,14 +153,57 @@ namespace LibCN{
 						for(size_t i=0;i<o_c;i++)
 							for(size_t u=0;u<o_h;u++)
 								for(size_t v=0;v<o_l;v++)
+									if(
+										!(
+											(long long)a-(long long)(stride*u)+(long long)padding<0||
+											(long long)b-(long long)(stride*v)+(long long)padding<0||
+											(long long)a-(long long)(stride*u)+(long long)padding>=(long long)kernal[0].h||
+											(long long)b-(long long)(stride*v)+(long long)padding>=(long long)kernal[0].l
+										)
+									)
 									res(j,a,b)+=
 										dl_dz(i,u,v)*
 										kernal[i](
 											j,
-											a-u*stride+padding,
-											b-v*stride+padding
+											(long long)a-(long long)(u*stride)+(long long)padding,
+											(long long)b-(long long)(v*stride)+(long long)padding
 										);
 					}
+
+			for(size_t i=0;i<o_c;i++)
+				for(size_t j=0;j<i_c;j++)
+					for(size_t x=0;x<kernal[0].h;x++)
+						for(size_t y=0;y<kernal[0].l;y++){
+							T grad_k=T(0);
+							for(size_t u=0;u<o_h;u++)
+								for(size_t v=0;v<o_l;v++){
+									if(
+										!(
+											(long long)(u*stride)+(long long)x-(long long)padding<0||
+											(long long)(v*stride)+(long long)y-(long long)padding<0||
+											(long long)(u*stride)+(long long)x-(long long)padding>=(long long)i_h||
+											(long long)(v*stride)+(long long)y-(long long)padding>=(long long)i_l
+										)
+									)
+									grad_k+=
+										dl_dz(i,u,v)*
+										last_input(
+											j,
+											(long long)(u*stride)+(long long)x-(long long)padding,
+											(long long)(v*stride)+(long long)y-(long long)padding
+										);
+								}
+							kernal[i](j,x,y)-=step*grad_k;
+						}
+			std::vector<T>grad_b(o_c,T(0));
+
+			for(size_t i=0;i<o_c;i++)
+				for(size_t u=0;u<o_h;u++)
+					for(size_t v=0;v<o_l;v++)
+						grad_b[i]+=dl_dz(i,u,v);
+
+			for(size_t i=0;i<o_c;i++)b[i]-=step*grad_b[i];
+
 			return res;
 		}
 	};

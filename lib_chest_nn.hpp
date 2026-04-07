@@ -6,5 +6,6 @@
 #include"./nn/activations.hpp"
 #include"./nn/network.hpp"
 #include"./nn/losses.hpp"
+#include"./nn/tensor_3d.hpp"
 
 #endif
