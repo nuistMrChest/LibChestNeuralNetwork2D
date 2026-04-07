@@ -51,7 +51,7 @@ namespace LibCN{
 		}
 
 		void setLayer(size_t index,size_t i,size_t o){
-			layers[index]=Layer<T>(i,o);
+			layers[index]=MLPLayer<T>(i,o);
 		}
 
 		void setLayerFun(
